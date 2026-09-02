@@ -1,0 +1,8 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [],
+  "server": {
+    "port": 15000,
+    "hostname": "127.0.0.1"
+  }
+}

@@ -20,9 +20,17 @@ name = "gui"
 description = "在电脑上打开 opencode 对话界面"
 exec = "touch /share/gui.flag"
 
+# 外部入站通道（自测/应急触发 agent 用；仅容器内 localhost）
+[webhook]
+enabled = true
+port = 9111
+token = "cc-remote-selftest"
+path = "/hook"
+
 [[projects]]
 name = "cc-remote"
 admin_from = "${QQ_ALLOW_FROM}"   # 管理员=你自己（/gui /shell 等特权命令）
+agent_session_idle_timeout_mins = 0   # 0=进程常驻不回收（TUI attach 随时就绪；健康靠每日重启 timer）
 
 [projects.agent]
 type = "acp"

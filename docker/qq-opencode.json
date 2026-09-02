@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "zhipuai-coding-plan/glm-5.3",
+  "model": "deepseek/deepseek-v4-flash",
   "instructions": ["/app/qq-style.md"],
   "skills": {
     "paths": [
