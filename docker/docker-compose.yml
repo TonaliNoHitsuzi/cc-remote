@@ -1,0 +1,25 @@
+services:
+  cc-remote:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: cc-remote
+    restart: always
+    env_file: .env
+    volumes:
+      # opencode 登录凭证（复用宿主 WSL 侧，单一来源）
+      - /home/zzy/.local/share/opencode:/root/.local/share/opencode
+      - /home/zzy/.config/opencode:/root/.config/opencode
+      # 工作区（AgentRoot 整树；agent work_dir=/workspace/cc-remote）
+      - /home/zzy/AgentRoot:/workspace
+      # 运行配置与提示词（改提示词无需重建镜像）
+      - ./config.toml:/app/config.toml:ro
+      - ./qq-style.md:/app/qq-style.md:ro
+      - ./qq-opencode.json:/app/qq-opencode.json:ro
+      # skills（Windows D 盘经 WSL 9P，读取型 IO 可接受）
+      - /mnt/d/Zzy的Skill工具包:/skills:ro
+      # 会话/队列持久化
+      - /home/zzy/AgentRoot/cc-remote/docker/data:/data
+      # 宿主→容器状态桥（ToDesk 围观感知等）
+      - /home/zzy/AgentRoot/cc-remote/docker/share:/share
+    # v1 不暴露任何端口（Dashboard 待 M5 带 web 前端重编后另行启用）

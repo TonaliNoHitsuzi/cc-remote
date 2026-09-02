@@ -1,0 +1,38 @@
+# cc-remote 生产配置（容器内路径；凭证经环境变量注入，勿写明文）
+data_dir = "/data"
+
+[log]
+level = "info"
+
+[display]
+mode = "quiet"
+show_context_indicator = true
+thinking_messages = false
+tool_messages = false
+
+turn_timeout_mins = 30
+
+[[projects]]
+name = "cc-remote"
+
+[projects.agent]
+type = "acp"
+
+[projects.agent.options]
+work_dir = "/workspace/cc-remote"
+cmd = "opencode"
+args = ["acp"]
+display_name = "OpenCode ACP"
+
+[projects.agent.options.env]
+OPENCODE_CONFIG = "/app/qq-opencode.json"
+
+[[projects.platforms]]
+type = "qqbot"
+
+[projects.platforms.options]
+app_id = "${QQ_APP_ID}"
+app_secret = "${QQ_APP_SECRET}"
+sandbox = true
+allow_from = "2EB2DD390753D07C3AD3B16BA2667BDF"
+markdown_support = true

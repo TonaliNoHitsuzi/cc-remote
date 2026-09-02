@@ -1,0 +1,7 @@
+# build context 瘦身（只保留 docker/ 与 spike/bin/）
+*
+!docker/
+!spike/
+!spike/bin/
+!spike/bin/cc-connect-dev
+!spike/bin/opencode
