@@ -72,7 +72,7 @@ docker compose restart
 | 4 | （随 #3） | 打断空响应复用 NO_REPLY 静默通道 |
 | 5 | `agent/acp/session.go` + `core/engine.go` | 实现 ContextUsageReporter（usage_update/prompt response 真实数据）+ 分行标签式 footer |
 
-复现方式见 [spike/优化-结论.md](spike/优化-结论.md)；均待提交上游。
+复现方式见 [spike/优化-结论.md](spike/优化-结论.md)；均待提交上游——完整 PR 文档（根因分析/实测证据/复现指南）见 [docs/upstream-prs/](docs/upstream-prs/)。
 
 ## QQ 命令速查
 
