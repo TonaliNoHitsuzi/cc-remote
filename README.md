@@ -15,6 +15,9 @@ docker compose up -d --build         # 改配置/镜像后重建
 #   skills /mnt/d/Zzy的Skill工具包 · 提示词 docker/qq-style.md（改完 restart 生效）
 # 每日 04:00 systemd timer 自动重启（治 ACP 泄漏）；ToDesk 围观状态桥由
 #   Windows 侧 Scripts/watching-writer.ps1 提供（开机自启）
+# 自启动链：Windows 登录 → 计划任务 WSL-Autostart-cc-remote 拉起 WSL →
+#   systemd 起 docker → restart:always 起容器 → QQ 网关重连（全自动自愈）
+# 空闲开销：cc-connect ~40MB；WSL vmmem ~1.4GB（含 Docker/searxng，非本项目大头）
 # cc-connect 含 4 个本地补丁（思维链过滤等，见 spike/优化-结论.md），升级需重放
 ```
 
