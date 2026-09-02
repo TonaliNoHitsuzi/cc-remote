@@ -22,4 +22,7 @@ services:
       - /home/zzy/AgentRoot/cc-remote/docker/data:/data
       # 宿主→容器状态桥（ToDesk 围观感知等）
       - /home/zzy/AgentRoot/cc-remote/docker/share:/share
-    # v1 不暴露任何端口（Dashboard 待 M5 带 web 前端重编后另行启用）
+    # opencode acp 内嵌 server（TUI attach 实时同步入口，仅本机回环 + 密码）
+    ports:
+      - "127.0.0.1:14096:14096"
+    # v1 不暴露其它端口（cc-connect Dashboard 待 M5 另行启用）

@@ -1,5 +1,6 @@
 # cc-remote 生产配置（容器内路径；凭证经环境变量注入，勿写明文）
 data_dir = "/data"
+language = "zh"
 
 [log]
 level = "info"
@@ -21,6 +22,7 @@ exec = "touch /share/gui.flag"
 
 [[projects]]
 name = "cc-remote"
+admin_from = "${QQ_ALLOW_FROM}"   # 管理员=你自己（/gui /shell 等特权命令）
 
 [projects.agent]
 type = "acp"
@@ -28,11 +30,12 @@ type = "acp"
 [projects.agent.options]
 work_dir = "/home/zzy/AgentRoot/cc-remote"
 cmd = "opencode"
-args = ["acp"]
+args = ["acp", "--port", "14096", "--hostname", "0.0.0.0"]
 display_name = "OpenCode ACP"
 
 [projects.agent.options.env]
 OPENCODE_CONFIG = "/app/qq-opencode.json"
+OPENCODE_SERVER_PASSWORD = "${OP_SERVER_PASSWORD}"
 
 [[projects.platforms]]
 type = "qqbot"
