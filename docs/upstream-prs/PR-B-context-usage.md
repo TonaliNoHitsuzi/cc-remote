@@ -1,6 +1,6 @@
 # PR-B：feat(acp): 实现 ContextUsageReporter（真实上下文占用上报）
 
-> 状态：文档就绪，待提交。关联上游 open issues **#1672**（ctx footer 硬编码 200k 窗口）与 **#1764**（auto-compress 用文本估算，漏掉 70-85% 真实上下文）。
+> 状态：已提交上游（PR #1789 / #1790 / #1791 见 README 补丁表）。关联上游 open issues **#1672**（ctx footer 硬编码 200k 窗口）与 **#1764**（auto-compress 用文本估算，漏掉 70-85% 真实上下文）。
 > 基线 b39c11f。
 
 ## PR 标题（中英）

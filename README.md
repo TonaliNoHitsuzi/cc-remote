@@ -64,13 +64,13 @@ docker compose restart
 
 ## 本地补丁（上游 PR 素材）
 
-| # | 位置 | 内容 |
-|---|---|---|
-| 1 | `agent/acp/mapping.go` | opencode 的 `agent_thought_chunk` 归类 EventThinking（原名不匹配被当正文泄漏思维链） |
-| 2 | `core/engine.go` | 有原生按钮的平台跳过"已允许"冗余确认（点击自带反馈） |
-| 3 | `core/engine.go` | ACP 优雅取消增加 `turnCancelled` 标志，打断后空 turn 不发"(空响应)" |
-| 4 | （随 #3） | 打断空响应复用 NO_REPLY 静默通道 |
-| 5 | `agent/acp/session.go` + `core/engine.go` | 实现 ContextUsageReporter（usage_update/prompt response 真实数据）+ 分行标签式 footer |
+| # | 位置 | 内容 | 上游 PR |
+|---|---|---|---|
+| 1 | `agent/acp/mapping.go` | opencode 的 `agent_thought_chunk` 归类 EventThinking（原名不匹配被当正文泄漏思维链） | [cc-connect#1789](https://github.com/chenhg5/cc-connect/pull/1789) |
+| 2 | `core/engine.go` | 有原生按钮的平台跳过"已允许"冗余确认（点击自带反馈） | [cc-connect#1791](https://github.com/chenhg5/cc-connect/pull/1791) |
+| 3 | `core/engine.go` | ACP 优雅取消增加 `turnCancelled` 标志，打断后空 turn 不发"(空响应)" | [cc-connect#1791](https://github.com/chenhg5/cc-connect/pull/1791) |
+| 4 | （随 #3） | 打断空响应复用 NO_REPLY 静默通道 | 同上 |
+| 5 | `agent/acp/session.go` | 实现 ContextUsageReporter（usage_update/prompt response 真实数据；engine 侧展示增强未随 PR 提交，属本仓库本地增强） | [cc-connect#1790](https://github.com/chenhg5/cc-connect/pull/1790) |
 
 复现方式见 [spike/优化-结论.md](spike/优化-结论.md)；均待提交上游——完整 PR 文档（根因分析/实测证据/复现指南）见 [docs/upstream-prs/](docs/upstream-prs/)。
 

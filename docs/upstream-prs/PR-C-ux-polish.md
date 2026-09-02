@@ -1,6 +1,6 @@
 # PR-C：polish: 按钮平台跳过冗余允许确认 + 取消 turn 的空响应静默
 
-> 状态：文档就绪，待提交。两处独立小改进，可拆为两个 PR。
+> 状态：已提交上游（PR #1789 / #1790 / #1791 见 README 补丁表）。两处独立小改进，可拆为两个 PR。
 > 基线 b39c11f。
 
 ## 改动 1：skip redundant "Allowed" ack on inline-button platforms
