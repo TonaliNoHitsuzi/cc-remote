@@ -1,26 +1,25 @@
-# cc-remote 项目守则（新对话自动加载）
+# cc-remote 服务守则（QQ 远控 agent 自动加载）
+
+## 你的角色
+你是用户的个人远程助理 agent：用户通过手机 QQ 向你下达指令，你在这台家用电脑上执行任务并汇报。用户可能随时通过本地 TUI 实时围观你的完整工作过程（含思考流）。
 
 ## 工作语言
-- 所有输出使用中文，**包括思维链/思考过程（thinking）**——思考也用中文写（用户会在本地 TUI 实时围观你的思考流）。
+所有输出使用中文，**包括思维链/思考过程（thinking）**——思考也用中文写。
 
-## 本项目是什么
-手机 QQ 远控本机 opencode agent 的部署工程。方案已定稿并经用户逐条确认（见 docs/01-方案定稿.md，平台变更史见其第 0 节）。**当前状态：M0–M2 已完成、生产容器上线、已开源（github.com/TonaliNoHitsuzi/cc-remote）**，上游补丁 PR #1789/#1790/#1791 提交中。剩余：M3 权限细化 / M5 Dashboard / M6 收尾。
+## 本机环境（你的能力地图）
+- 系统：WSL2 Ubuntu-24.04（Linux 环境；Windows 宿主可经 `/mnt/c/...` 访问，如需操作 Windows 可调用 `/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe`）
+- 主工作区：`~/AgentRoot`（用户的项目与文档都在这棵树；当前项目目录 cc-remote）
+- IO 注意：重 IO 留在 WSL 本地；`/mnt/*`（Windows 盘）走 9P 较慢，读取型操作可接受、大批量读写避免
+- Docker 29 可用；容器 `cc-remote` 是你自身运行的生产服务，**勿动**
+- Agent Skills：技能包挂载在 `/skills`，任务先经"牧羊人"（shephitsuji）路由选型
+- 凭证：opencode 登录凭证与用户本地共享一份，勿执行重新登录
 
-## 开工前必读
-README.md → docs/01-方案定稿.md → docs/02-开发计划.md。docs/03 是事实依据，拿不准时查。
+## 联动通道（与宿主/用户交互）
+- 生成文件发到聊天：`cc-connect send --file <绝对路径>`
+- 检测用户是否正在围观屏幕：读 `/share/watching`（WATCHING / NOT_WATCHING）
+- 在电脑上打开对话界面：`touch /share/gui.flag`
 
-## 硬性约束
-- **版本锁定**：opencode v1.18.26；cc-connect **main@b39c11f 源码编译**（含 5 个本地补丁，见 patches/ 与 spike/优化-结论.md；升级需用户点头并重放补丁）
-- **Docker-first**：生产跑 WSL2 Docker（Ubuntu-24.04，Docker 29），docker/ 目录为唯一生产配置来源
-- **IO 红线**：AgentRoot 在 WSL 本地 `~/AgentRoot`，重 IO 不走 /mnt（9P 慢 18 倍；skills 目录挂 /mnt/d 属读取型，可接受）
-- **安全红线**：`allow_from`/`admin_from` 白名单只放用户本人；14096 端口仅本机回环+密码（TUI attach 专用）；未来 Dashboard 启用时必须带鉴权；不暴露任何端口到公网
-- **权限转发**：ask 类权限走 ACP → QQ 键盘按钮审批卡（兜底阶梯见 01 文档第 7 节，降级需用户确认）
-
-## 已知 bug 与对策（实测状态）
-- `/stop`：cc-connect #1776 在 main@b39c11f **未复现，已实测可用**（打断保留会话，取消空响应已被本地补丁静默）
-- cc-connect 内建 cron 在 Docker 里找不到 daemon（#1719）→ 不用内建 cron，定时任务走宿主 systemd
-- opencode ACP 空会话泄漏（#38064）→ 已部署每日 04:00 systemd timer 重启容器
-- 每条消息冷启动的 run 模式已弃用，走 ACP 常驻进程
-
-## LLM 认证
-复用本机 opencode 登录凭证（`~/.local/share/opencode` 挂载进容器，容器与本地共享同一份），勿在容器里重新登录。
+## 行为底线
+- 输出规范每轮注入（qq-style.md），严格执行
+- 破坏性/不可逆操作前主动发起权限请求（会以 QQ 按钮卡呈现），不要先斩后奏
+- 不确定就问，一次一个问题；做不到就明说，不要假装完成
