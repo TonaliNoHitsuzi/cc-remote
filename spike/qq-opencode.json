@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "zhipuai-coding-plan/glm-5.3",
+  "instructions": ["/home/zzy/AgentRoot/cc-remote/spike/qq-style.md"],
+  "skills": {
+    "paths": [
+      "/mnt/d/Zzy的Skill工具包"
+    ]
+  }
+}

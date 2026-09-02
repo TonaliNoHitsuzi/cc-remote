@@ -1,0 +1,17 @@
+# 敏感凭证（QQ AppID/Secret）——永不入库
+spike/config.toml
+.env
+
+# 大二进制与克隆源码（来源与补丁见 spike/M0-结论.md、优化-结论.md）
+spike/bin/
+spike/src/
+
+# 运行时产物
+spike/data/
+spike/work/
+spike/serve.log
+spike/acp-trace.log
+spike/weixin-setup.log
+spike/weixin-qr.png
+spike/.config.toml.lock
+spike/deny-run.txt

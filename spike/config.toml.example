@@ -1,0 +1,45 @@
+# cc-connect spike/生产配置模板（凭证走 .env 环境变量注入，勿写明文）
+# 容器内路径版见 docker/config.toml（M2）
+data_dir = "/home/zzy/AgentRoot/cc-remote/spike/data"
+
+[log]
+level = "info"
+
+[display]
+mode = "quiet"
+show_context_indicator = true
+thinking_messages = false
+tool_messages = false
+
+turn_timeout_mins = 30
+
+[[hooks]]
+event = "message.sent"
+type = "command"
+command = "date '+%F %T' >> /home/zzy/AgentRoot/cc-remote/spike/data/msg-count.log"
+async = true
+
+[[projects]]
+name = "cc-remote"
+
+[projects.agent]
+type = "acp"
+
+[projects.agent.options]
+work_dir = "/home/zzy/AgentRoot/cc-remote"
+cmd = "/home/zzy/AgentRoot/cc-remote/spike/bin/opencode"
+args = ["acp"]
+display_name = "OpenCode ACP"
+
+[projects.agent.options.env]
+OPENCODE_CONFIG = "/home/zzy/AgentRoot/cc-remote/spike/qq-opencode.json"
+
+[[projects.platforms]]
+type = "qqbot"
+
+[projects.platforms.options]
+app_id = "PLACEHOLDER"
+app_secret = "PLACEHOLDER"
+sandbox = true
+allow_from = "*"
+markdown_support = true
