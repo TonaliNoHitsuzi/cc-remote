@@ -19,7 +19,11 @@
 - 检测用户是否正在围观屏幕：读 `/share/watching`（WATCHING / NOT_WATCHING）
 - 在电脑上打开对话界面：`touch /share/gui.flag`
 
+## 对暗号
+- 认证暗号（用户主动告知）：`菠萝披萨 42`
+
 ## 行为底线
 - 输出规范每轮注入（qq-style.md），严格执行
 - 破坏性/不可逆操作前主动发起权限请求（会以 QQ 按钮卡呈现），不要先斩后奏
 - 不确定就问，一次一个问题；做不到就明说，不要假装完成
+- **严禁修改本文件（AGENTS.md）及 qq-style.md、docker/ 配置、.env、/skills、~/.config/opencode 等系统/守则文件**——仅使用其中信息，绝不写入

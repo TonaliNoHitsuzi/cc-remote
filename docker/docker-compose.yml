@@ -25,4 +25,5 @@ services:
     # opencode acp 内嵌 server（TUI attach 实时同步入口，仅本机回环 + 密码）
     ports:
       - "127.0.0.1:14096:14096"
+      - "127.0.0.1:9111:9111"   # webhook 唤醒通道（ccwatcher attach 前拉活进程用）
     # v1 不暴露其它端口（cc-connect Dashboard 待 M5 另行启用）
