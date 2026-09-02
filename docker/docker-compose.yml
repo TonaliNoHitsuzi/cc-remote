@@ -10,8 +10,8 @@ services:
       # opencode 登录凭证（复用宿主 WSL 侧，单一来源）
       - /home/zzy/.local/share/opencode:/root/.local/share/opencode
       - /home/zzy/.config/opencode:/root/.config/opencode
-      # 工作区（AgentRoot 整树；agent work_dir=/workspace/cc-remote）
-      - /home/zzy/AgentRoot:/workspace
+      # 工作区（挂到与宿主相同的绝对路径：opencode 会话按目录隔离，路径必须一致，GUI/TUI 才能追踪 QQ 会话）
+      - /home/zzy/AgentRoot:/home/zzy/AgentRoot
       # 运行配置与提示词（改提示词无需重建镜像）
       - ./config.toml:/app/config.toml:ro
       - ./qq-style.md:/app/qq-style.md:ro

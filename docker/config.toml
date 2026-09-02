@@ -7,10 +7,17 @@ level = "info"
 [display]
 mode = "quiet"
 show_context_indicator = true
+show_workdir_indicator = false
 thinking_messages = false
 tool_messages = false
 
 turn_timeout_mins = 30
+reset_on_idle_mins = 0  # 永不空闲分裂：仅显式 /new 才开新会话（用户要求单一对话域）
+
+[[commands]]
+name = "gui"
+description = "在电脑上打开 opencode 对话界面"
+exec = "touch /share/gui.flag"
 
 [[projects]]
 name = "cc-remote"
@@ -19,7 +26,7 @@ name = "cc-remote"
 type = "acp"
 
 [projects.agent.options]
-work_dir = "/workspace/cc-remote"
+work_dir = "/home/zzy/AgentRoot/cc-remote"
 cmd = "opencode"
 args = ["acp"]
 display_name = "OpenCode ACP"
