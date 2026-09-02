@@ -1,0 +1,285 @@
+diff --git a/agent/acp/mapping.go b/agent/acp/mapping.go
+index 286a128..d1e0780 100644
+--- a/agent/acp/mapping.go
++++ b/agent/acp/mapping.go
+@@ -232,7 +232,7 @@ func extractToolCallContentText(blocks []struct {
+ func mapSessionUpdateFallback(sessionID string, kind string, update json.RawMessage) []core.Event {
+ 	// Some agents may send reasoning as a dedicated discriminator; map to EventThinking.
+ 	switch strings.ToLower(kind) {
+-	case "reasoning", "reasoning_chunk", "thinking", "agent_thinking_chunk":
++	case "reasoning", "reasoning_chunk", "thinking", "agent_thinking_chunk", "agent_thought_chunk":
+ 		var u struct {
+ 			Content struct {
+ 				Type string `json:"type"`
+diff --git a/agent/acp/session.go b/agent/acp/session.go
+index 2ed2e45..b325db5 100644
+--- a/agent/acp/session.go
++++ b/agent/acp/session.go
+@@ -49,6 +49,9 @@ type acpSession struct {
+ 	// updated whenever SetLiveMode succeeds or the server announces a
+ 	// mode change via session/update.
+ 	modesMu        sync.RWMutex
++	usageMu        sync.RWMutex
++	lastUsage      core.ContextUsage
++	haveUsage      bool
+ 	availableModes []acpModeInfo
+ 	currentMode    string
+ 
+@@ -372,6 +375,7 @@ func (s *acpSession) onNotification(method string, params json.RawMessage) {
+ 	}
+ 	s.cacheToolCallInput(params)
+ 	s.maybeAbsorbCurrentModeUpdate(params)
++	s.maybeAbsorbUsageUpdate(params)
+ 	sid := s.currentACPSessionID()
+ 	// Debug log to capture raw session/update JSON for troubleshooting vendor compatibility
+ 	slog.Debug("acp: session/update", "session_id", sid, "params", string(params))
+@@ -380,6 +384,48 @@ func (s *acpSession) onNotification(method string, params json.RawMessage) {
+ 	}
+ }
+ 
++// maybeAbsorbUsageUpdate watches session/update notifications for
++// `usage_update` (opencode extension: {"used": N, "size": M}) and records
++// real context usage for the reply footer / auto-compress heuristics.
++func (s *acpSession) maybeAbsorbUsageUpdate(params json.RawMessage) {
++	var wrap struct {
++		Update json.RawMessage `json:"update"`
++	}
++	if json.Unmarshal(params, &wrap) != nil || len(wrap.Update) == 0 {
++		return
++	}
++	var head struct {
++		Kind string `json:"sessionUpdate"`
++	}
++	if json.Unmarshal(wrap.Update, &head) != nil || head.Kind != "usage_update" {
++		return
++	}
++	var u struct {
++		Used int `json:"used"`
++		Size int `json:"size"`
++	}
++	if json.Unmarshal(wrap.Update, &u) != nil {
++		return
++	}
++	s.usageMu.Lock()
++	s.lastUsage.UsedTokens = u.Used
++	s.lastUsage.ContextWindow = u.Size
++	s.haveUsage = true
++	s.usageMu.Unlock()
++}
++
++// GetContextUsage implements core.ContextUsageReporter with real figures
++// captured from usage_update + session/prompt responses.
++func (s *acpSession) GetContextUsage() *core.ContextUsage {
++	s.usageMu.RLock()
++	defer s.usageMu.RUnlock()
++	if !s.haveUsage {
++		return nil
++	}
++	cu := s.lastUsage
++	return &cu
++}
++
+ // maybeAbsorbCurrentModeUpdate watches session/update notifications
+ // for `current_mode_update` (server-driven mode switch, e.g. when the
+ // user toggles modes via the Windsurf/IDE UI while cc-connect is
+@@ -622,6 +668,27 @@ func (s *acpSession) Send(prompt string, messageID string, images []core.ImageAt
+ 	}
+ 	slog.Debug("acp: session/prompt response", "session_id", sid, "response_len", len(res), "response", string(res))
+ 
++	// Absorb per-turn usage (esp. cachedReadTokens) into the context snapshot.
++	var pr struct {
++		Usage struct {
++			InputTokens      int `json:"inputTokens"`
++			OutputTokens     int `json:"outputTokens"`
++			TotalTokens      int `json:"totalTokens"`
++			CachedReadTokens int `json:"cachedReadTokens"`
++		} `json:"usage"`
++	}
++	if json.Unmarshal(res, &pr) == nil && (pr.Usage.InputTokens > 0 || pr.Usage.TotalTokens > 0) {
++		s.usageMu.Lock()
++		if pr.Usage.CachedReadTokens > 0 {
++			s.lastUsage.CachedInputTokens = pr.Usage.CachedReadTokens
++		}
++		s.lastUsage.InputTokens = pr.Usage.InputTokens
++		s.lastUsage.OutputTokens = pr.Usage.OutputTokens
++		s.lastUsage.TotalTokens = pr.Usage.TotalTokens
++		s.haveUsage = true
++		s.usageMu.Unlock()
++	}
++
+ 	// Text was streamed via session/update; engine aggregates EventText.
+ 	s.emit(core.Event{
+ 		Type:      core.EventResult,
+diff --git a/core/engine.go b/core/engine.go
+index 4ec0aff..f27b15b 100644
+--- a/core/engine.go
++++ b/core/engine.go
+@@ -549,6 +549,7 @@ type interactiveState struct {
+ 	mu                       sync.Mutex
+ 	stopCh                   chan struct{}
+ 	stopped                  bool
++	turnCancelled            bool // set when a graceful ACP CancelTurn aborted the live turn
+ 	pending                  *pendingPermission
+ 	pendingMessages          []queuedMessage // messages queued while session was busy
+ 	approveAll               bool            // when true, auto-approve all permission requests for this session
+@@ -3474,7 +3475,9 @@ found:
+ 		}); err != nil {
+ 			slog.Error("failed to send permission response", "error", err)
+ 			e.reply(p, msg.ReplyCtx, fmt.Sprintf(e.i18n.T(MsgError), err))
+-		} else {
++		} else if _, hasButtons := p.(InlineButtonSender); !hasButtons {
++			// Platforms with native inline buttons already acknowledge the click
++			// client-side (visited state); an extra text confirmation is noise.
+ 			e.reply(p, msg.ReplyCtx, e.i18n.T(MsgPermissionAllowed))
+ 		}
+ 	} else if isDenyResponse(lower) {
+@@ -5764,7 +5767,19 @@ func (e *Engine) processInteractiveEvents(state *interactiveState, session *Sess
+ 				fullResponse = strings.Join(textParts, "")
+ 			}
+ 			if fullResponse == "" {
+-				fullResponse = e.i18n.T(MsgEmptyResponse)
++				state.mu.Lock()
++				cancelled := state.turnCancelled
++				state.turnCancelled = false // read-and-clear
++				stopped := state.stopped
++				state.mu.Unlock()
++				if cancelled || stopped {
++					// User-aborted/cancelled mid-turn with no agent output: stay silent —
++					// the /stop ack already told the user. Reuses the NO_REPLY
++					// silent-delivery path so no "(empty response)" noise is sent.
++					fullResponse = "NO_REPLY"
++				} else {
++					fullResponse = e.i18n.T(MsgEmptyResponse)
++				}
+ 			}
+ 
+ 			// Strip any agent-self-reported "[ctx: ~XX%]" marker so it does not
+@@ -5846,19 +5861,23 @@ func (e *Engine) processInteractiveEvents(state *interactiveState, session *Sess
+ 			// suppressed — the rich card renders an equivalent statusFooter
+ 			// through BuildRichCard, so re-appending the legacy footer here
+ 			// would double-print model/ctx/workdir into the card body.
+-			var statusFooter string
+-			var legacyStatusFooter string
+-			if !isSilent {
+-				footerContext := replyFooterContextText(replyFooterSessionContextUsage(state.agentSession), e.i18n)
+-				if e.showContextIndicator {
+-					if sdkPlausible {
+-						if text := contextIndicatorText(event.InputTokens); text != "" {
+-							footerContext = text
+-						}
+-					} else if selfPct > 0 {
+-						footerContext = fmt.Sprintf("[ctx: ~%d%%]", selfPct)
++		var statusFooter string
++		var legacyStatusFooter string
++		if !isSilent {
++			usage := replyFooterSessionContextUsage(state.agentSession)
++			footerContext := replyFooterContextText(usage, e.i18n)
++			if e.showContextIndicator {
++				if rich := contextUsageRichText(usage); rich != "" {
++					// Real agent-reported usage (used/size/cache) beats all estimates.
++					footerContext = rich
++				} else if sdkPlausible {
++					if text := contextIndicatorText(event.InputTokens); text != "" {
++						footerContext = text
+ 					}
++				} else if selfPct > 0 {
++					footerContext = fmt.Sprintf("[ctx: ~%d%%]", selfPct)
+ 				}
++			}
+ 				if status := e.buildClaudeStatusLineFooter(replyAgent, state.agentSession, workspaceDir); status != "" {
+ 					statusFooter = status
+ 				} else if footer := e.buildReplyFooter(replyAgent, state.agentSession, workspaceDir, footerContext); footer != "" {
+@@ -7825,26 +7844,31 @@ func (e *Engine) buildClaudeStatusLineFooter(agent Agent, session AgentSession,
+ 			pct = 100
+ 		}
+ 
+-		// Compose:
+-		//   <model id> · [effort:X ·] out N · in N cw N cr N · ctx N%
+-		// `·` separates major segments; tokens-in tier (in/cw/cr) groups under
+-		// one segment because cw/cr are just cache-tiered variants of input.
+-		// Raw model id is preserved (e.g. "claude-opus-4-7[1m]") for diagnostic
+-		// clarity over a prettified display name.
+-		var line1Parts []string
++		// Multi-line labeled footer (cc-remote style):
++		//   模型: glm-5.3
++		//   上下文: 17.5k / 200.0k (8.7%)
++		//   缓存: 14.7k (99.6%)
++		var lines []string
+ 		if model := strings.TrimSpace(replyFooterModel(session, agent)); model != "" {
+-			line1Parts = append(line1Parts, model)
++			if i := strings.LastIndex(model, "/"); i >= 0 && i < len(model)-1 {
++				model = model[i+1:]
++			}
++			lines = append(lines, "模型: "+model)
+ 		}
+-		if effort := strings.TrimSpace(replyFooterReasoningEffort(session, agent)); effort != "" {
+-			line1Parts = append(line1Parts, "effort:"+effort)
++		lines = append(lines, fmt.Sprintf("上下文: %s / %s (%d%%)",
++			formatStatusTokenCount(used), formatStatusTokenCount(usage.ContextWindow), pct))
++		cacheLabel := "缓存"
++		if usage.CachedInputTokens > 0 && used > 0 {
++			cpct := int(float64(usage.CachedInputTokens) * 100 / float64(used))
++			if cpct > 100 {
++				cpct = 100
++			}
++			cacheLabel = fmt.Sprintf("缓存: %s (%d%%)", formatStatusTokenCount(usage.CachedInputTokens), cpct)
++		} else {
++			cacheLabel = fmt.Sprintf("缓存: %s", formatStatusTokenCount(usage.CachedInputTokens))
+ 		}
+-		line1Parts = append(line1Parts, fmt.Sprintf("out %s", formatStatusTokenCount(usage.OutputTokens)))
+-		line1Parts = append(line1Parts, fmt.Sprintf("in %s cw %s cr %s",
+-			formatStatusTokenCount(usage.InputTokens),
+-			formatStatusTokenCount(usage.CacheCreationInputTokens),
+-			formatStatusTokenCount(usage.CachedInputTokens)))
+-		line1Parts = append(line1Parts, fmt.Sprintf("ctx %d%%", pct))
+-		line1 = strings.Join(line1Parts, " · ")
++		lines = append(lines, cacheLabel)
++		line1 = strings.Join(lines, "\n")
+ 	}
+ 
+ 	var line2 string
+@@ -10375,6 +10399,7 @@ func (e *Engine) stopInteractiveSessionWithOptions(sessionKey string, notifyQueu
+ 		// the cancelled turn before processing fresh input.
+ 		state.mu.Lock()
+ 		state.eventsNeedResync = true
++		state.turnCancelled = true
+ 		state.mu.Unlock()
+ 
+ 		cancelErr := canceller.CancelTurn()
+@@ -17069,6 +17094,36 @@ func contextIndicatorText(inputTokens int) string {
+ 	return fmt.Sprintf("[ctx: ~%d%%]", pct)
+ }
+ 
++// contextUsageRichText renders agent-reported context usage as
++// "[ctx: 8.6k/200k · 4% · cache 99%]". Empty string when no real data.
++func contextUsageRichText(usage *ContextUsage) string {
++	if usage == nil || usage.ContextWindow <= 0 || usage.UsedTokens <= 0 {
++		return ""
++	}
++	pct := int(float64(usage.UsedTokens) / float64(usage.ContextWindow) * 100)
++	if pct > 100 {
++		pct = 100
++	}
++	var b strings.Builder
++	fmt.Fprintf(&b, "[ctx: %s/%s · %d%%", humanTokenCount(usage.UsedTokens), humanTokenCount(usage.ContextWindow), pct)
++	if usage.CachedInputTokens > 0 {
++		cpct := int(float64(usage.CachedInputTokens) / float64(usage.UsedTokens) * 100)
++		if cpct > 100 {
++			cpct = 100
++		}
++		fmt.Fprintf(&b, " · cache %d%%", cpct)
++	}
++	b.WriteString("]")
++	return b.String()
++}
++
++func humanTokenCount(n int) string {
++	if n >= 1000 {
++		return fmt.Sprintf("%.1fk", float64(n)/1000)
++	}
++	return fmt.Sprintf("%d", n)
++}
++
+ // ctxSelfReportRe matches agent self-reported context lines like "[ctx: ~42%]".
+ // Used to strip such markers from delivered text — the ctx indicator is now
+ // rendered exclusively in the reply footer.
