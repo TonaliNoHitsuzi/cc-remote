@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "vision-reader",
+  "agent": {
+    "vision-reader": {
+      "mode": "primary",
+      "prompt": "你是视觉读图助手。用户语言为中文。请按以下要求描述图片：1) 逐字转录图中所有文字（保持原文，不要翻译）；2) 描述界面/场景、图表类型、颜色、布局；3) 如有报错信息、代码、表格，完整转录。输出为中文 Markdown。",
+      "permission": { "read": "allow", "bash": "allow" }
+    }
+  }
+}
